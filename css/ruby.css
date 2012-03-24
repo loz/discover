@@ -1,8 +1,14 @@
-.highlight pre {
+.highlight pre,
+pre.shell {
   font-family: 'Menlo', 'Courier New', 'Terminal', monospace;
   background-color: #232323;
   color: #E6E0DB;
   padding: 0.25em;
+}
+
+pre.shell {
+  padding 0.5em;
+  font-size: 0.8em;
 }
 
 .ruby .n { color:#E7BE69 }                      /* html attribute */

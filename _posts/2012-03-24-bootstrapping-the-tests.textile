@@ -1,0 +1,318 @@
+---
+layout: default
+---
+h1. The Next Step
+
+Picking up from the previous post, I had an outline of the code I want to write, and a simple case example to test it.  However I can't help thinking that there's an awful lot of code to write in order to get that passing.
+
+The BDD process often helps you detect this, and then consider why, and if there is a simpler approach needed.
+
+In this case I think that I could get into a bit of a paradox.  I need to run my test framework to test my test framework.
+
+It then struck me, that perhaps I'd been forgetting to ask a simple question to start with.  'Why a test framework?'
+
+h2. What _is_ a test framework for?
+
+To me a framework is there to take away some of the common tasks and simplify the expression and running of tests, but it *is not TDD or BDD itself*.  This is the clear realisation which I needed.  The framework is not BDD, so I can forget about the framework (for now).
+
+What in essence then is Test Driven Development?  The simple answer:
+
+* A program which tests that code functions as expected, showing a developer that it does (or does not)
+* The developer writing code which first does not pass expectations, and then does
+
+This leads me into the next question.
+
+h3. How to show the result of expectation
+
+In the simplest form, if I boil down to the essence of an automated test, I know that the simplest code I could write to *test* my code would look like:
+
+{% highlight ruby %}
+if my_code_output == my_expected_output
+  puts "Pass"
+else
+  puts "Fail"
+end
+{% endhighlight %}
+
+As I can rely on ruby's if statement 100% (otherwise _nothing_ is sacred), I can now write a test to ensure the code I want to write works the way I want it to.  Yes it's not very neat, and it will probably be very unDRY, but with this *simple* building block, I might just be able to bootstrap a more sophisticated framework, from which I build another, until I reach the framework I actually want.
+
+h2. Bootspec
+
+OK.  I know I need to bootstrap this framework, so am going to have a simple ruby method, and a ruby script which uses if statements and puts to test for me what this code does.
+
+What I want to write some simple expectations.  Lets start at the beginning, and encapsulate the above test code into something neater.
+
+h3. First the test
+
+I want to have some methods to call which enable me to reuse the above if/pass/fail code, so a method, @check@ perhaps.  Lets have it return a string, and we'll worry about output later, and perhap @F@ and @.@ would be good pass and fail markers..
+
+@bootspec_test.rb@
+
+{% highlight ruby %}
+require 'bootspec'
+include Bootspec
+
+#Positive Path
+result = check true
+if result == '.'
+  puts "Pass"
+else
+  puts "Fail"
+end
+{% endhighlight %}
+
+h3. Next the running
+
+Because I'm writing pure ruby here, no framework, I don't need a 'runner' to test, I just run the ruby file:
+
+<pre class='shell'>
+bash$ ruby -I . bootspec_test.rb
+</pre>
+
+h3. My First Failure
+
+Hurray!  I have a failure, and in TDD that's great!
+
+<pre class='shell'>
+/Users/jlozinski/.rbenv/versions/1.9.3-p0/lib/ruby/1.9.1/rubygems/custom_require.rb:36:in `require': cannot load such file -- bootspec (LoadError)
+  from /Users/jlozinski/.rbenv/versions/1.9.3-p0/lib/ruby/1.9.1/rubygems/custom_require.rb:36:in `require'
+    from bootspec_test.rb:1:in `<main>'
+</pre>
+
+So the simplest solution to my error, to move forward with my TDD process:
+
+<pre class='shell'>
+bash$ touch bootspec.rb
+</pre>
+
+And run the test again:
+
+<pre class='shell'>
+bootspec_test.rb:2:in `<main>': uninitialized constant Bootspec (NameError)
+</pre>
+
+Great, a new error!  This is because there is no constant Bootspec which we're trying to include, so:
+
+@bootspec.rb@
+
+{% highlight ruby %}
+module Bootspec
+end
+{% endhighlight %}
+
+And again with the test:
+
+<pre class='shell'>
+bootspec_test.rb:5:in `<main>': undefined method `check' for main:Object (NoMethodError)
+</pre>
+
+Hurray, we're getting close now.  There's no check method, so...
+
+{% highlight ruby %}
+module Bootspec
+  def check
+  end
+end
+{% endhighlight %}
+
+And the test output is now:
+
+<pre class='shell'>
+/Users/jlozinski/Development/discover_code/bootstrap/bootspec.rb:2:in `check': wrong number of arguments (1 for 0) (ArgumentError)
+  from bootspec_test.rb:5:in `<main>'
+</pre>
+
+OK, nearly there, we need to have the right arg count, so:
+
+{% highlight ruby %}
+module Bootspec
+  def check(value)
+  end
+end
+{% endhighlight %}
+
+And the test output is now:
+
+<pre class='shell'>
+Fail
+</pre>
+
+Holy Cow!  We have a proper Fail, without a whiff of a test framework.  Amazing.  This is the point in TDD when you really get excited, your first failing test, and it's failing for the *right* reasons!
+
+h3. My First Pass
+
+We're finally ready to add a simple line of code to pass the test:
+
+{% highlight ruby %}
+module Bootspec
+  def check(value)
+    '.'
+  end
+end
+{% endhighlight %}
+
+And running our test produces:
+
+<pre class='shell'>
+Pass
+</pre>
+
+Hurray!  We did it.  We have a pass, we have guaranteed, tested and passing behavior.
+
+h3. Finishing the spec
+
+Now's the point where all the other behavior we need falls into place.  There's another failing test to write:
+
+@bootspec_test.rb@
+
+{% highlight ruby %}
+#....
+
+#Negative Path
+result = check false
+if result == 'F'
+  puts "Pass"
+else
+  puts "Fail"
+end
+{% endhighlight %}
+
+Run the tests again, gives us:
+
+<pre class='shell'>
+Pass
+Fail
+</pre>
+
+We can see one of our tests is failing (the second).  It's not fantastic from a usability perspective, but its good enough for us now when we can see we have just 2 tests and easily identify the failing test.  So we have to implement some correct behavior now:
+
+@bootspec.rb@
+
+{% highlight ruby %}
+module Bootspec
+  def check(value)
+    if value
+      '.'
+    else
+      'F'
+    end
+  end
+end
+{% endhighlight %}
+
+Run the tests again, gives us:
+
+<pre class='shell'>
+Pass
+Pass
+</pre>
+
+We're there.  I have no more failing tests to write, so I can fully rely on my 'check' method for my testing needs.  As I move forward in this process I will probably want a more useful reporting mechanism, but for now, how about adding some self-referential tests to the tester..
+
+@bootspec_test.rb@
+
+{% highlight ruby %}
+#....
+
+#Using check to check itself..
+print check check(true) == '.'
+print check check(false) == 'F'
+{% endhighlight %}
+
+Running the tests gives:
+
+<pre class='shell'>
+Pass
+Pass
+..
+</pre>
+
+Those last two dots are passing tests using our check method.  This begs the question, could we refactor out the original tests now (the ones which output 'Pass' and 'Fail')?  Lets try it, by clearing out the test file to just this:
+
+@bootspec_test.rb@
+
+{% highlight ruby %}
+require 'bootspec'
+include Bootspec
+
+print check check(true) == '.'
+print check check(false) == 'F'
+
+{% endhighlight %}
+
+Running our tests now results in:
+
+<pre class='shell'>
+..
+</pre>
+
+Which on the surface seems great, but lets break some of the behavior and see if these tests are actually ok..
+
+@bootspec.rb@
+
+{% highlight ruby %}
+  def check(value)
+    '.'
+  end
+{% endhighlight %}
+
+Running our tests *still* results in:
+
+<pre class='shell'>
+..
+</pre>
+
+Because we're getting a false positive here..  Our test simply outputs . no matter what, so we can't detect that its working incorrectly.  So we absolutely need the previous code back in.  But perhaps we'll change the 'Fail' and 'Pass' to '.' and 'F' to match our 'check' behavior.  This means we draw this particular part to a close with an amazingly simplistic bootstrap for specs:
+
+@bootspec_test.rb@
+
+{% highlight ruby %}
+require 'bootspec'
+include Bootspec
+
+#Positive Path
+result = check true
+if result == '.'
+  print "."
+else
+  print "F"
+end
+
+#Negative Path
+result = check false
+if result == 'F'
+  print "."
+else
+  print "F"
+end
+
+#Test check with check
+print check check(true) == '.'
+print check check(false) == 'F'
+{% endhighlight %}
+
+@bootspec.rb@
+
+{% highlight ruby %}
+module Bootspec
+  def check(value)
+    if value
+      '.'
+    else
+      'F'
+    end
+  end
+end
+{% endhighlight %}
+
+And the tests are run with:
+
+<pre class='shell'>
+bash$ ruby -I . bootspec_test.rb
+</pre>
+
+h2. Conclusion
+
+We have a testing tool which was written entirely TDD, and we can confidently use this simple tool to develop a more complex useful version next time.
+
+All the code from this is avaialable in the @02-bootstrap@ branch
