@@ -177,4 +177,4 @@ end
 
 With all that done, I think I've written a reasonable stab at what that behaviour I want to build looks like, now all I need to look at is making this pass, so that's what I'll look to do next time..
 
-(All code here should be available in branch 01-start)
+(All code here should be available in "branch 01-start":https://github.com/loz/discover/tree/01-start)
