@@ -1,0 +1,222 @@
+---
+layout: default
+---
+h1. Refining the tools
+
+In the previous article I managed to build a simple method which can output test pass (dots) and fails (F's) for simple booleans:
+
+{% highlight ruby %}
+print check some_thing == what_is_expected
+print check !something_is_true
+{% endhighlight %}
+
+This will result in a row of dots where tests pass, and F's where there are failures.  This is pretty great from the perspective that it was all written with tests guaranteeing the behavior, and that was done without a test framework.  It isn't great that when there are failures we have no indication of what went wrong other than by counting the tests and hunting through our test code.
+
+What we want, as a developer, is that the failures have an indication of where the failure occurred, to report back.
+
+h2. Exceptions from the expected
+
+Ruby has a built in mechanism for getting this information, and its inside a backtrace.  You can get at the backtrace inside an "Exception":http://ruby-doc.org/core-1.9.3/Exception.html#method-i-backtrace.  This leads me down the path of having something like the check method, but more severe, so that it doesn't return dots or Fs but it raises an exception, which we can use, to show failures clearly.
+
+We can use the check method from @Bootspec@ to develop this, so, the first requirement might be written like this:
+
+@expect_test.rb@
+
+{% highlight ruby %}
+require 'bootspec'
+include Bootspec
+
+#Check that expect doesn't raise exceptions for true
+error_raised = false
+begin
+  expect true
+rescue
+  error_raised = true
+end
+
+print check !error_raised
+{% endhighlight %}
+
+We can run this test in the same way as before.  You might expect us to follow the same path that lead us to create the method in the previous article here, see NoMethodError, add the method etc..  But there's a reason that I have chosen to test that *no error* was raised.  Because the lack of @expect@ will cause an error, but it will be caught.  Our output should go straight to the F for not exhibiting the checked behavior:
+
+<pre class='shell'>
+bash$ ruby -I . expect_test.rb
+F
+</pre>
+
+So we have a fail using our previous @check@ method.  Now we just need to write the minimum code to get this to pass.  That means adding in the @expect@ method into the @Bootspec@ module:
+
+@bootspec.rb@
+
+{% highlight ruby %}
+module Bootspec
+  # Code previously here..
+
+  def expect(value)
+  end
+end
+{% endhighlight %}
+
+Now the run for the tests outputs:
+
+<pre class='shell'>
+.
+</pre>
+
+Next we should test the failure path, and that it does raise an exception.  For the time being we don't really mind what exception it raises, just that it does so that later we get the backtrace we want:
+
+@expect_test.rb@
+
+{% highlight ruby %}
+
+#Check that expect raises exceptions for false
+error_raised = false
+begin
+  expect false
+rescue
+  error_raised = true
+end
+
+print check error_raised
+{% endhighlight %}
+
+Now our test run of @expect_test.rb@ outputs:
+
+<pre class='shell'>
+.F
+</pre>
+
+So we know again, that our second test is failing (as expected).  Lets write the code to make that work, again going for the simplest solution to this:
+
+@bootspec.rb@
+
+{% highlight ruby %}
+module Bootspec
+  def expect(value)
+    raise 'Unexpected' unless value
+  end
+end
+{% endhighlight %}
+
+And we have the run as follows:
+
+<pre class='shell'>
+..
+</pre>
+
+Great.  We now have an exception raising mechanism which will give us a backtrace to find out the culprit (failing test).
+
+h2. Running the expectations
+
+The problem we have now, is that instead of simply outputting . or F, the code now raises exceptions, leading us to need to write begin/rescue/end blocks around our tests.  These are needed, but we don't want to have to write that every time we '@expect@' something.  It doesn't feel very DRY.
+
+We want to take the same approach which lead us to develop @check@ which is to encapsulate that testing mechanism into something else..  Perhaps we need to run the @expect@ tests inside a block which knows how to deal with the errors.
+
+Perhaps we want to write some code like this:
+
+{% highlight ruby %}
+test { expect true }
+test { expect false }
+test { expect something == somethingelse }
+#=> outputs each . or F as they pass or fail..
+test.results
+#=> (outputs errors caught)
+{% endhighlight %}
+
+So we'd look to incorporate the printing of output into these methods too, so we need to be able to test that too..
+
+This also leads to the recognition that the tests around @expect@ are much more about testing implementation than perhaps is needed.  After all, I don't really *need* it to raise an exception, I'm just using that as a means to deliver my end result (knowing where errors occurred).  The code above is far more like the behaviour we want to test, so lets try and express that *behavior* in test form.
+
+h3. Specifying test behavior
+
+The first thing I need to do in the test is to check what it prints, so I need a way to get a string for what is output, so we need to test what that code should do, given that we'll rely on it:
+
+@capture_test.rb@
+
+{% highlight ruby %}
+require 'bootspec'
+include Bootspec
+
+#Test that output is captured correctly
+
+result = capture do
+  print 'expected'
+end
+
+print check result == 'expected'
+{% endhighlight %}
+
+Running our test as usual produces the following:
+
+<pre class='shell'>
+bash$ ruby -I . capture_test.rb
+capture_test.rb:6:in `<main>': undefined method `capture' for main:Object (NoMethodError)
+</pre>
+
+So, simply add the method:
+
+@bootspec.rb@
+
+{% highlight ruby %}
+module Bootspec
+  # Code previously here..
+
+  def capture
+  end
+end
+{% endhighlight %}
+
+And now our test gives us:
+
+<pre class='shell'>
+F
+</pre>
+
+The smallest amount to pass this is actually a fair bit of code (to properly pass this, obviously we could just return the expected string).
+
+
+{% highlight ruby %}
+require 'stringio'
+
+def capture
+  $stdout = StringIO.new
+  yield
+  $stdout.string
+end
+{% endhighlight %}
+
+And now our test give us:
+
+<pre class='shell'>
+</pre>
+
+Oh.  Nothing.  Well, that's because our test *is* passing, but we can't see it, because we broke stdout.  So in order to _see_ the pass, we actually need to write more code than this:
+
+{% highlight ruby %}
+def capture
+  old = $stdout
+  $stdout = StringIO.new
+  yield
+  string = $stdout.string
+  $stdout = old
+  string
+end
+{% endhighlight %}
+
+And now our test give us the pass we had, but we can see it!:
+
+<pre class='shell'>
+.
+</pre>
+
+
+h2. Checking the Integration
+
+Finally, because we modified @Bootspec@ we should also run the previous tests to assure ourselves that this change did not break our original code:
+
+<pre class='shell'>
+ruby -I . bootspec_test.rb 
+....
+</pre>
+
+Good.  All is well.
