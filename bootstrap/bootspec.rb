@@ -1,3 +1,5 @@
+require 'stringio'
+
 module Bootspec
   def check(value)
     if value
@@ -5,5 +7,18 @@ module Bootspec
     else
       'F'
     end
+  end
+
+  def expect(value)
+    raise 'Unexpected' unless value
+  end
+
+  def capture
+    old = $stdout
+    $stdout = StringIO.new
+    yield
+    string = $stdout.string
+    $stdout = old
+    string
   end
 end
