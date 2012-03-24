@@ -1,19 +1,16 @@
+---
+layout: default
+---
 h1. So it begins
 
-Sort of inspired by Jose Valim's effords at writing a programming language
-to learn about programming languages, and what lessons my apply to the work
-he does within existing languages, I thought that I might do well by taking
-a similar apprach to TDD and BDD.
+Sort of inspired by Jose Valim's effords at writing a programming language to learn about programming languages, and what lessons my apply to the work he does within existing languages, I thought that I might do well by taking a similar apprach to TDD and BDD.
 
-If you don't know, I love BDD/TDD.  I think its just plain fab.  It's by far
-the most important tool gained in my professional experience, and I'm thrilled
-at how integral it is within the ruby community.
+If you don't know, I love BDD/TDD.  I think its just plain fab.  It's by far the most important tool gained in my professional experience, and I'm thrilled at how integral it is within the ruby community.
 
-But what if it wasn't?  In other words, what if there were no testing frameworks?
-How does one go about introducing one.  An ultimately, if buy into TDD/BDD
-fully (and I do), shouldn't I write such a thing TDD/BDD?
+But what if it wasn't?  In other words, what if there were no testing frameworks?  How does one go about introducing one.  An ultimately, if I buy into TDD/BDD fully (and I do), shouldn't I write such a thing TDD/BDD?
 
 h2. So Where Do You Start?
+
 My first instinct when starting a new ruby project is to do the following:
 
 * @bundle gem project@
@@ -26,58 +23,37 @@ My first instinct when starting a new ruby project is to do the following:
 * @bundle exec guard@
 * fire up @vim@ and start specifying the behavior
 
-However, in this exercise of intentionally crippling myself, by not allowing myself
-to use rspec or test unit (or any other test framework), I do not have that option.
+However, in this exercise of intentionally crippling myself, by not allowing myself to use rspec or test unit (or any other test framework), I do not have that option.
 
-So, where do I start?  Clearly I need a test runner, and it needs to test expectations.
-The question is, how can I write a runner without any tests?
+So, where do I start?  Clearly I need a test runner, and it needs to test expectations.  The question is, how can I write a runner without any tests?
 
 h2. How fundamental am I?
 
-The first question is, how fundamental am I in my approach to BDD.  In other words,
-is it the one true way to deliver software?  Can I possibly write software any other
-way?
+The first question is, how fundamental am I in my approach to BDD.  In other words, is it the one true way to deliver software?  Can I possibly write software any other way?
 
 Another is, what ultimately is BDD about?
 
-For me, this is perhaps where I need to start.  Test first development is about
-writing a test for a behavior that doesn't exist, running that test and watching
-it fail, then writing the minimum amount of code needed to satisfy the requirement.
+For me, this is perhaps where I need to start.  Test first development is about writing a test for a behavior that doesn't exist, running that test and watching it fail, then writing the minimum amount of code needed to satisfy the requirement.
 
-However, in practice it's not always just, write the spec, see it fail, write the
-code to make it pass, and then repeat.  Often, there are in fact a series of failures
-which one must tackle, one after the other, to get the failure you *want* to
-exhibit, before finally writing the solution.
+However, in practice it's not always just, write the spec, see it fail, write the code to make it pass, and then repeat.  Often, there are in fact a series of failures which one must tackle, one after the other, to get the failure you *want* to exhibit, before finally writing the solution.
 
-In other words, some times the failure is @NoMethodError@ before you actually have a
-failure because your method doesn't return what you expect.
+In other words, some times the failure is @NoMethodError@ before you actually have a failure because your method doesn't return what you expect.
 
-With that in mind, perhaps I can view my BDD approach as, write a section of code in
-my desired syntax which makes an assertion of a particular feature, and work through
-the 'red' phase to deliver the smallest changes of code which fulfil the specified
-requirements.
+With that in mind, perhaps I can view my BDD approach as, write a section of code in my desired syntax which makes an assertion of a particular feature, and work through the 'red' phase to deliver the smallest changes of code which fulfil the specified requirements.
 
-Perhaps this might sound like a cop-out.  My 'failing' test to start with will be the
-fact that the whole thing will simply drop out all over the place with standard ruby
-exceptions, pretty much as it would without a BDD approach, and I'm simply considering
-these syntax errors etc as my 'failing' tests.
+Perhaps this might sound like a cop-out.  My 'failing' test to start with will be the fact that the whole thing will simply drop out all over the place with standard ruby exceptions, pretty much as it would without a BDD approach, and I'm simply considering these syntax errors etc as my 'failing' tests.
 
-I think however, it's exactly what I'm trying to investigate.  What exactly should be
-my approach to BDD?  What purpose does it serve, and how should I best apply it?
+I think however, it's exactly what I'm trying to investigate.  What exactly should be my approach to BDD?  What purpose does it serve, and how should I best apply it?
 
 h2. Discovering my code
 
-So, now I have a speck of a thought developing, it's time to try and build that behaviour
-up, from the minimum I need.
+So, now I have a speck of a thought developing, it's time to try and build that behaviour up, from the minimum I need.
 
 h3. Syntax
 
-I really love much of what RSpec brings to the table, so this is likely to play an
-influential part in designing a syntax, but hopefully I can think about this with a little
-more freedom.
+I really love much of what RSpec brings to the table, so this is likely to play an influential part in designing a syntax, but hopefully I can think about this with a little more freedom.
 
-The first thing, is what I'm trying to do with my 'specification' tool.  I am trying to
-discover what code to write, so perhaps that's a good phrase to use:
+The first thing, is what I'm trying to do with my 'specification' tool.  I am trying to discover what code to write, so perhaps that's a good phrase to use:
 
 {% highlight ruby %}
 discover "a discover test run" do
@@ -86,34 +62,25 @@ end
 
 Here I want to discover what a test run might look like and do.
 
-Next I need a way of expressing the requirements we're trying do discover.  Usually this
-is various scenarios, or conditionals:
+Next I need a way of expressing the requirements we're trying do discover.  Usually this is various scenarios, or conditionals:
 
 {% highlight ruby %}
-discover "a discover test run" do
-  when "running a when expectation which passes" do
-  end
+when "running a when expectation which passes" do
 end
 {% endhighlight %}
 
-I'm conscious here however that 'when' is a ruby reserved word for case statements, but it
-might just be possible.  Perhaps a trip into an @irb@ might be permissible to check...
+I'm conscious here however that 'when' is a ruby reserved word for case statements, but it might just be possible.  Perhaps a trip into an @irb@ might be permissible to check...
 
-Nope!  I can define a @when@ method, but in order to not conflict with a keyword, I'd have
-to call @self.when@ which is less than stellar.  Perhaps another syntax:
+Nope!  I can define a @when@ method, but in order to not conflict with a keyword, I'd have to call @self.when@ which is less than stellar.  Perhaps another syntax:
 
 {% highlight ruby %}
-discover "a discover test run" do
-  with "an expectation which passes" do
-  end
+with "an expectation which passes" do
 end
 {% endhighlight %}
 
-This doesn't have any keyword problems, but might not be the best of syntaxes.  Still,
-the purpose is to discover, so let's run with it for now.
+This doesn't have any keyword problems, but might not be the best of syntaxes.  Still, the purpose is to discover, so let's run with it for now.
 
-The next question is what is within the body of this with.  This usually involves three
-things:
+The next question is what is within the body of this with.  This usually involves three things:
 
 * Setup
 * Operation
@@ -121,89 +88,56 @@ things:
 
 h3. The Setup
 
-The setup can sometimes be omitted from the test, as it might simply be an operation and
-the examination of the result.
+The setup can sometimes be omitted from the test, as it might simply be an operation and the examination of the result.
 
-In this case, I'm trying to specify what happens when I specify using the above syntax,
-so my setup probably needs to be some more of this syntax, perhaps:
+In this case, I'm trying to specify what happens when I specify using the above syntax, so my setup probably needs to be some more of this syntax, perhaps:
 
 {% highlight ruby %}
-discover "a discover test run" do
-  with "an expectation which passes" do
-    it.has "a file of discover code" do |runner|
-      runner.file = './cases/test_passing_discover.rb'
-    end
-  end
+it.has "a file of discover code" do |runner|
+  runner.file = './cases/test_passing.rb'
 end
 {% endhighlight %}
 
-This syntax seems kind of nice, in that I state what @it.has@ as a setup, even giving a string
-to clarify what this is.  It does beg the question as to what '@it@' is.  So maybe I need
-to set that, and here I think @RSpec's@ implicit subject might be just the ticket:
+This syntax seems kind of nice, in that I state what @it.has@ as a setup, even giving a string to clarify what this is.  It does beg the question as to what '@it@' is.  So maybe I need to set that, and here I think @RSpec's@ implicit subject might be just the ticket:
 
 
 {% highlight ruby %}
 discover DiscoverRunner do
-  with "an expectation which passes" do
-    it.has "a file of discover code" do |runner|
-      runner.file = './cases/test_passing_discover.rb'
-    end
-  end
+  # Code here...
 end
 {% endhighlight %}
 
-Good.  I now have syntax, and can write with some clarity what I want (obviously /none/ of this
-code will run at all).  So, I have a concept of some files which are fixed setup cases, and that
-needs to include what would be a passing test when the syntax is worked out.
+Good.  I now have syntax, and can write with some clarity what I want (obviously _none_ of this code will run at all).  So, I have a concept of some files which are fixed setup cases, and that needs to include what would be a passing test when the syntax is worked out.
 
 h3. The Operation
 
-Sometimes the operation and the expectation are in one line, in this case I might want refer to
-the operation as is:
+Sometimes the operation and the expectation are in one line, in this case I might want refer to the operation as is:
 
 {% highlight ruby %}
 discover DiscoverRunner do
-  with "an expectation which passes" do
-    it.has "a file of discover code" do |runner|
-      runner.file = './cases/test_passing_discover.rb'
-    end
-    *it.runs*
-  end
+  #....
+  it.runs
 end
 {% endhighlight %}
 
-Here I'm thinking that I'm invoking a method on my subject under test, and perhaps I'm using 
-a form of the method name in the here an now, so 'run' is my operation, and the statement
-@it.runs@ is indicating that it is doing it as part of these tests.  Some active support
-inflection could play a part here to enable readable executions of code, like @it.configures@
-or @it.updates@.
+Here I'm thinking that I'm invoking a method on my subject under test, and perhaps I'm using a form of the method name in the here an now, so 'run' is my operation, and the statement @it.runs@ is indicating that it is doing it as part of these tests.  Some active support inflection could play a part here to enable readable executions of code, like @it.configures@ or @it.updates@.
 
 h3. The Expectation
 
-Finally we have the expectation, and in my mind, it's a question of who or what has the
-expectation.  For me, it's usually I expect, so maybe:
+Finally we have the expectation, and in my mind, it's a question of who or what has the expectation.  For me, it's usually I expect, so maybe:
 
 {% highlight ruby %}
 discover DiscoverRunner do
-  with "an expectation which passes" do
-    it.has "a file of discover code" do |runner|
-      runner.file = './cases/test_passing_discover.rb'
-    end
-    it.runs
-    i.expect_it to.not raise.any.errors
-  end
+  #....
+  i.expect_it to.not have.any.errors
 end
 {% endhighlight %}
 
-An here, @i@ could just as easily be written @we@, so I could support an alias in the syntax
-to reflect that the expectation could be for more than one person (e.g. a pair programming
-team)
+An here, @i@ could just as easily be written @we@, so I could support an alias in the syntax to reflect that the expectation could be for more than one person (e.g. a pair programming team)
 
 h3. The test 'case'
 
-Now that I have something like the syntax I might want, I can write the syntax for the test
-case file @./cases/test_passing_discover.rb@.  What simpler test could I have than a true
-is true test.
+Now that I have something like the syntax I might want, I can write the syntax for the test case file @./cases/test_passing.rb@.  What simpler test could I have than a true is true test.
 
 {% highlight ruby %}
 discover "The Truth" do
@@ -214,8 +148,33 @@ discover "The Truth" do
 end
 {% endhighlight %}
 
-Here I feel the need to be more explicit with what the subject is under test, and am thinking
-that @it.is@ makes a nice clear sentence, and the intent is clear.
+Here I feel the need to be more explicit with what the subject is under test, and am thinking that @it.is@ makes a nice clear sentence, and the intent is clear.  The whole test code would look something like this:
 
-With all that done, I think I've written a reasonable stab at what that behaviour I want to
-build looks like, now all I need to look at is making this pass..
+@discoveries/runner.rb@
+
+{% highlight ruby %}
+discover DiscoverRunner do
+  with "an expectation which passes" do
+    it.has "a file of discover code" do |runner|
+      runner.file = './cases/test_passing.rb'
+    end
+    it.runs
+    i.expect_it to.not have.any.errors
+  end
+end
+{% endhighlight %}
+
+@discoveries/cases/test_passing.rb@
+
+{% highlight ruby %}
+discover "The Truth" do
+  with "true" do
+    it.is true
+    i.expect_it to.be true
+  end
+end
+{% endhighlight %}
+
+With all that done, I think I've written a reasonable stab at what that behaviour I want to build looks like, now all I need to look at is making this pass, so that's what I'll look to do next time..
+
+(All code here should be available in branch 01-start)
