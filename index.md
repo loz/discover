@@ -2,6 +2,10 @@
 title: Blogs
 ---
 
+I asked myself, what would it be like to do TDD if there were no frameworks in existance.  Or in otherwords, how would I write a TDD framework, using TDD principles, if no frameworks existed?
+
+The goal being to learn about how I think about TDD/BDD, and then be able to apply those lessons when I use the frameworks that I do..
+
 Articles
 ========
 
