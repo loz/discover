@@ -315,4 +315,4 @@ h2. Conclusion
 
 We have a testing tool which was written entirely TDD, and we can confidently use this simple tool to develop a more complex useful version next time.
 
-All the code from this is avaialable in the @"02-bootstrap":https://github.com/loz/discover/tree/02-bootstrap@ branch
+All the code from this is avaialable in the "@02-bootstrap@":https://github.com/loz/discover/tree/02-bootstrap branch

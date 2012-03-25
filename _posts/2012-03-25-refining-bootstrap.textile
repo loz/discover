@@ -112,7 +112,9 @@ The problem we have now, is that instead of simply outputting . or F, the code n
 
 We want to take the same approach which lead us to develop @check@ which is to encapsulate that testing mechanism into something else..  Perhaps we need to run the @expect@ tests inside a block which knows how to deal with the errors.
 
-Perhaps we want to write some code like this:
+This also leads to the recognition that the tests around @expect@ are much more about testing implementation than perhaps is needed.  After all, I don't really *need* it to raise an exception, I'm just using that as a means to deliver my end result (knowing where errors occurred).  The code we want to be writing is about the behavior, so lets try and express that *behavior* in test form.
+
+Perhaps we want to write our test code like this:
 
 {% highlight ruby %}
 test { expect true }
@@ -120,16 +122,16 @@ test { expect false }
 test { expect something == somethingelse }
 #=> outputs each . or F as they pass or fail..
 test.results
-#=> (outputs errors caught)
+#=> (outputs details of error locations)
 {% endhighlight %}
 
-So we'd look to incorporate the printing of output into these methods too, so we need to be able to test that too..
+So the *behavior* we're expecting, is that when we call test, the block is evaluated as a test, and it will output . or F for pass or fail.  Additionally we want to be able to call @results@ and get a list of _where_ the failures took place.
 
-This also leads to the recognition that the tests around @expect@ are much more about testing implementation than perhaps is needed.  After all, I don't really *need* it to raise an exception, I'm just using that as a means to deliver my end result (knowing where errors occurred).  The code above is far more like the behaviour we want to test, so lets try and express that *behavior* in test form.
+h3. Testing our 'test suite' behavior
 
-h3. Specifying test behavior
+In order to be sure about that the behavior is as I outlined above, I need to know what was output in a testable format (something I can use my @check@ method on).  This means a small detour to build another little tool that will help us verify the behavior of our tests.
 
-The first thing I need to do in the test is to check what it prints, so I need a way to get a string for what is output, so we need to test what that code should do, given that we'll rely on it:
+For this, I'm basically going with capturing stdout as a string, and checking the string either directly, or using regex matches.  This is actually reasonably simple to do, but because this is something I'm relying on for the integrity of my tests, I need to write this in a TDD way, to be absolutely certain it is doing just that:
 
 @capture_test.rb@
 
@@ -145,6 +147,9 @@ end
 
 print check result == 'expected'
 {% endhighlight %}
+
+
+The behavior of @capture@ we're testing is that any output generated in the block is returned at the end in a string.
 
 Running our test as usual produces the following:
 
@@ -174,7 +179,6 @@ F
 
 The smallest amount to pass this is actually a fair bit of code (to properly pass this, obviously we could just return the expected string).
 
-
 {% highlight ruby %}
 require 'stringio'
 
@@ -190,7 +194,63 @@ And now our test give us:
 <pre class='shell'>
 </pre>
 
-Oh.  Nothing.  Well, that's because our test *is* passing, but we can't see it, because we broke stdout.  So in order to _see_ the pass, we actually need to write more code than this:
+Oh.  Nothing.  Well, that's because our test *is* passing, but we can't see it, because we broke stdout.  So in order to _see_ the pass, we actually need to write more code than this.
+
+We know (or rather think) the test is passing.  We need to write more behavior in our test, that of not breaking stdout.  How can we test that?  Well, if there were an exception, that would not use stdout, it would end up on stderr.
+
+How else can we be sure about the first test passing too?  It just so happens we can generate an exception, if we used @expect@ a fail would stop the test in it's tracks.  So lets try using expect before the check to see if we're passing.  If we're not, then the code will exit with an exception, even if stdout is broken:
+
+@capture_test.rb@
+
+{% highlight ruby %}
+require 'bootspec'
+include Bootspec
+
+#Test that output is captured correctly
+
+result = capture do
+  print 'expected'
+end
+
+expect result == 'expected'
+print check result == 'expected'
+{% endhighlight %}
+
+And now our test give us:
+
+<pre class='shell'>
+</pre>
+
+Still no output.  However, because the test doesn't raise any exceptions, we know for *certain* that it is passing.
+
+Now, is there a way for us to write a failing test for the breaking of standard out.  In other words, can we test stdout after the fact?  If only we had a way we can trust to test stdout...
+
+
+@capture_test.rb@
+
+{% highlight ruby %}
+#Test that output is restored afterwards
+after = capture do
+  inside = capture do
+    print 'inside'
+  end
+  print 'after'
+end
+
+expect after == 'after'
+print check after == 'after'
+{% endhighlight %}
+
+Now when we run our test we get the following output:
+
+<pre class='shell'>
+/Users/jlozinski/Development/discover_code/bootstrap/bootspec.rb:13:in `expect': Unexpected (RuntimeError)
+  from capture_test.rb:21:in `<main>'
+</pre>
+
+Great, so our capture after capture did not contain what we want it to.  So..  Now lets make it pass:
+
+@capture.rb@
 
 {% highlight ruby %}
 def capture
@@ -203,20 +263,35 @@ def capture
 end
 {% endhighlight %}
 
-And now our test give us the pass we had, but we can see it!:
+And now our test give us the pass we had originally, but we can see it!  It also passes the new behavior of restoring stdout again:
 
 <pre class='shell'>
-.
+..
 </pre>
 
+This is all pretty cool.  We can now have *absolute* certainty regarding three tools within our bootspec, and get to building a neater way of using them:
+
+* @check@ - will return '.' or 'F' depending on passes or fail condition
+* @expect@ - will raise errors if fails condition
+* @capture@ - will return a string of all output generated within it's block
+
+Now we're ready (next time) to write some behavior tests to support the syntax we outlined above.
 
 h2. Checking the Integration
 
-Finally, because we modified @Bootspec@ we should also run the previous tests to assure ourselves that this change did not break our original code:
+Finally, because we modified @Bootspec@ we should also run the all of the tests to assure ourselves that this change did not break our original code:
 
 <pre class='shell'>
-ruby -I . bootspec_test.rb 
-....
+ruby -I . bootspec_test.rb && ruby -I . expect_test.rb && ruby -I . capture_test.rb
+........
 </pre>
 
-Good.  All is well.
+Good.  All is well.  Every test passes, so all behavior can be fully relied on.
+
+h2. Conclusion
+
+We can now use our bootspec to test output of methods, and check that output is as expected, and when using @expect@ we get the location of the failing test.  Unfortunately the first failing tests halts everything unless we rescue.
+
+Next time we'll make it so that we can expect things, get the output for all tests, and then list the failures at the end of the test.
+
+All the code from this is available in the "@03-expect@":https://github.com/loz/discover/tree/03-expect branch
