@@ -1,0 +1,74 @@
+---
+layout: default
+---
+h1. Improving my expectations
+
+At the end of the previous article I had successfully written a method of capturing program output for testing, and a more robust check which actually shows where the failing test is (even though the test run will stop immediately)
+
+The next step is a to improve the output overall.  I want to ensure that tests run as a suite, and show the failures in a summary with helpful detail about it.  This is my medium term goal.  In the short term however, one of the ways in which I might look to improve the end output is to elaborate on what caused the failure in a more specific way.
+
+h2. What wasn't true?
+
+My expectation failure (and indeed @check@) is one which simply fails if the given condition was not true.  Now, moving in the direction of showing which test fails is helpful, but sometimes the code location isn't sufficient to know why things weren't true.
+
+Take the following code example, one which we're likely to write later to try and test output:
+
+{% highlight ruby %}
+
+output = capture do
+  perform_my_operation
+end
+
+expect output == 'my expected output'
+{% endhighlight %}
+
+This will fail if the captured output isn't what we wanted, but when it does fail, the question remains.  Why did it fail?  Obviously the output wasn't @'my expected output'@, but what was it?  Sometimes we might actually expect that the output matched, but the test still fails.  This can happen if we mistype our expected strings, or our implementation, or simply if we're wrong in what we think a peice of code does.  The important thing here is that when the expectation is not met, it's nice to know more detail about *why*, not just that something wasn't true..
+
+h2. Do I always expect true?
+
+The solution for this that is in my mind boils down to the question of whether, when I'm expressing behavior, I always expect true.  Obviously I do expect true to be true, but what I really expect is the _condition_.  In other words, can my expect method take the condition, not the _result_ of the condition?
+
+Here's the sort of code I'm thinking:
+
+{% highlight ruby %}
+output = capture do
+  perform_my_operation
+end
+
+expect output.to_be 'my_expected_output'
+{% endhighlight %}
+
+So now my @expect@ check is going to be passed the result of 'to_be' with 'my_expected_output' on 'output'.  To non-rubyists this might seem impossible, as string has no 'to_be' method, I just made it up.  But because ruby has _open_ classes, I can re-open @String@ or indeed @Object@ for this behavior to be available for all.
+
+A word of warning here though.  I don't want to *change* the behavior of these classes, that would violate the SOLID principles.  It would also expose me to having code which passes in tests but in reality doesn't work as is uses behavior added by the tests.
+
+h3. Adding the new behavhior
+
+Because I'm writing tests for new behavior to @expect@ I can't test using @expect@ itself (as we found out in the second article).  So I will rely on @check@ to verify that I get the right behavior:
+
+@expect_test.rb@
+
+{% highlight ruby %}
+#after existing tests
+
+#Check that expect accepts a condition, not just boolean
+error_raised = false
+begin
+  expect 'something'.to_be 'something'
+rescue
+  error_raised = true
+end
+
+print check !error_raised
+{% endhighlight %}
+
+Here we're asserting that this syntax is perfectly acceptable, and the it passes, the test run for @expect_tst.rb@ outputs the following:
+
+<pre class='shell'>
+ruby -I . expect_test.rb
+..F
+</pre>
+
+We're failing here because at present .to_be is not a method on strings (or any objects), so:
+
+
