@@ -1,4 +1,5 @@
 require 'stringio'
+require 'bootspec_extensions'
 
 module Bootspec
   def check(value)
