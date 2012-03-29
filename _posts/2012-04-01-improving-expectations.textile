@@ -71,4 +71,65 @@ ruby -I . expect_test.rb
 
 We're failing here because at present .to_be is not a method on strings (or any objects), so:
 
+@bootspec_extensions@
 
+{% highlight ruby %}
+class Object
+  unless method_defined? :to_be
+    def to_be(expected)
+      true
+    end
+  end
+end
+{% endhighlight %}
+
+And we'll require @bootspec_extensions@ in @bootspec.rb@ and then run our tests again:
+
+<pre class='shell'>
+ruby -I . expect_test.rb
+...
+</pre>
+
+Great, although we've actually cheated, and we're just returning true, so lets test that @expect ..to_be@ when it doesn't does raise:
+
+@expect_test.rb@
+
+{% highlight ruby %}
+#after existing tests
+
+#Check that expect fails for unmet condition
+error_raised = false
+begin
+  expect 'something'.to_be 'something else'
+rescue
+  error_raised = true
+end
+
+print check error_raised
+{% endhighlight %}
+
+And the result:
+
+<pre class='shell'>
+ruby -I . expect_test.rb
+...F
+</pre>
+
+So now we can fix that:
+
+{% highlight ruby %}
+class Object
+  unless method_defined? :to_be
+    def to_be(expected)
+      self == expected
+    end
+  end
+end
+{% endhighlight %}
+
+Now the test works, and the behavior is right:
+
+<pre class='shell'>
+ruby -I . expect_test.rb
+....
+</pre>
