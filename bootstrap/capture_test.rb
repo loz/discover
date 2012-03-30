@@ -7,7 +7,7 @@ result = capture do
   print 'expected'
 end
 
-expect result == 'expected'
+expect result.to_be 'expected'
 print check result == 'expected'
 
 #Test that output is restored afterwards
@@ -18,5 +18,5 @@ after = capture do
   print 'after'
 end
 
-expect after == 'after'
+expect after.to_be 'after'
 print check after == 'after'
