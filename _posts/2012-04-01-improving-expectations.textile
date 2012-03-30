@@ -22,7 +22,7 @@ end
 expect output == 'my expected output'
 {% endhighlight %}
 
-This will fail if the captured output isn't what we wanted, but when it does fail, the question remains.  Why did it fail?  Obviously the output wasn't @'my expected output'@, but what was it?  Sometimes we might actually expect that the output matched, but the test still fails.  This can happen if we mistype our expected strings, or our implementation, or simply if we're wrong in what we think a peice of code does.  The important thing here is that when the expectation is not met, it's nice to know more detail about *why*, not just that something wasn't true..
+This will fail if the captured output isn't what we wanted, but when it does fail, the question remains.  Why did it fail?  Obviously the output wasn't @'my expected output'@, but what was it?  Sometimes we might actually expect that the output matched, but the test still fails.  This can happen if we mistype our expected strings, or our implementation, or simply if we're wrong in what we think a piece of code does.  The important thing here is that when the expectation is not met, it's nice to know more detail about *why*, not just that something wasn't true..
 
 h2. Do I always expect true?
 
@@ -133,3 +133,220 @@ Now the test works, and the behavior is right:
 ruby -I . expect_test.rb
 ....
 </pre>
+
+h3. Actually passing the condition
+
+So now it is possible to accept slightly different syntax, but the condition is still actually evaluated and passed to the @expect@ method.  What we've essentially done is written another implementation of @==@.  What we want to do is to actually pass the condition, so that on failure we can know something about it.
+
+Now how we could test this is to put some specs for the to_be method.  However, that might tie us to the implementation a little too much.  What I really want to do is to get the right _output_ from these.  So If @expect@ fails, it raises an error.  We might want to ensure that the error tells us the condition which failed:
+
+@expect_test.rb@
+
+{% highlight ruby %}
+#Check that the condition is detailed in the raised error
+begin
+  expect 'one thing'.to_be 'another'
+rescue => error
+end
+
+print check error.message.include? "expected 'one thing' to be 'another'"
+{% endhighlight %}
+
+Here we're checking that the raised error makes use of the details of the condition.  The test fails:
+
+<pre class='shell'>
+ruby -I . expect_test.rb
+....F
+</pre>
+
+Aside from just hard-coding the exception message, this requires a little thought.
+
+The simplest solution to this, is perhaps to have @to_be@ return the error if it isn't expected, and true otherwise.  And then I change the @expect@ method to raise a string if given one, so lets try this solution:
+
+@bootspec_extensions.rb@
+
+{% highlight ruby %}
+def to_be(expected)
+  (self == expected) || "expected '#{self}' to be '#{expected}'"
+end
+{% endhighlight %}
+
+Running the test gives:
+
+<pre class='shell'>
+ruby -I . expect_test.rb
+...Fexpect_test.rb:51:in `<main>': undefined method `message' for nil:NilClass (NoMethodError)
+</pre>
+
+So far we haven't solved the issue, and we've broke a previous behavior.  So, let's make our @expect@ understand a given string as an error message:
+
+@bootspec.rb@
+
+{% highlight ruby %}
+def expect(value)
+  raise value if value.is_a? String
+  raise 'Unexpected' unless value
+end
+{% endhighlight %}
+
+Now our test passes::
+
+<pre class='shell'>
+ruby -I . expect_test.rb
+.....
+</pre>
+
+Great, the simple solution works, but am I happy with it?  No.  It now has some type checking, using @is_a?@ isn't brilliant.  Yes I could use a test to see if it has a string like method, but this is not really an API I'm expecting, its just a plain string.  The @if@ statement is also a bit of a code smell.
+
+So now I can look at a refactor.  I have in mind that there is an _expectation_ object which is returned, rather than a string.  Perhaps this object lets me check if it's @met?@, and perhaps can give me an exception message.  So in it's simplest, the @to_be@ method might do be rewritten:
+
+@bootspec_extensions.rb@
+
+{% highlight ruby %}
+def to_be(expected)
+  Expectation.new :met => (self == expected), :message => "expected '#{self}' to be '#{expected}'"
+end
+{% endhighlight %}
+
+And now add the @Expectation@ class using another file loaded by @bootspec.rb@:
+
+@bootspec_expectations.rb@
+
+{% highlight ruby %}
+class Expectation
+  attr_reader :met, :message
+
+  def initialize(options = {})
+    @met = options[:met]
+    @message = options[:message]
+  end
+end
+{% endhighlight %}
+
+And the tests are now broken again:
+
+<pre class='shell'>
+$ ruby -I . expect_test.rb
+...Fexpect_test.rb:51:in `<main>': undefined method `message' for nil:NilClass (NoMethodError)
+</pre>
+
+So, now instead of @expect@ working with a string, let's use the @Expectation@ _API_:
+
+@bootspec.rb@
+
+{% highlight ruby %}
+def expect(value)
+  if value.respond_to? :met
+    raise value.message unless value.met
+  end
+  raise 'Unexpected' unless value
+end
+{% endhighlight %}
+
+And the tests pass again:
+
+<pre class='shell'>
+ruby -I . expect_test.rb
+.....
+</pre>
+
+h2. Tidying up
+
+So I have the behavior working now, and I could refactor this again a little if I desired, as the building of the message happens on pass and fail, and perhaps @met@ should be named @met?@, but I think it's good enough for now.  I expect in the future there might be many types of @Exceptions@ and @to_???@ type helpers.  However, I don't need it now, so I'm going to ignore that for now.  It always helps to have a driver behind a behavior so that we meet some actual requirements, rather than some theoretical ones.
+
+There is one thing though, I might not want the original raise 'Unexpected' behavior for using a boolean.  It's reasonable to thing that @expect@ should always receive an expectation, or something which conforms to it's API, so the @if@ could maybe go.
+
+I know that there will be some big breakages here though, so first I need to check the integration of all tests first:
+
+<pre class='shell'>
+$ ruby -I . bootspec_test.rb && ruby -I . expect_test.rb && ruby -I . capture_test.rb
+...........
+</pre>
+
+Great, it all passes!  So let's get rid of the old boolean @expect@ call behavior:
+
+{% highlight ruby %}
+def expect(value)
+  raise value.message unless value.met
+end
+{% endhighlight %}
+
+And now let's see what broke:
+
+<pre class='shell'>
+$ ruby -I . bootspec_test.rb && ruby -I . expect_test.rb && ruby -I . capture_test.rb
+....F..../Users/jlozinski/Development/discover_code/bootstrap/bootspec.rb:15:in `expect': undefined method `met' for true:TrueClass (NoMethodError)
+  from capture_test.rb:10:in `<main>'
+</pre>
+
+So we've broken some tests, and even stopped the tests in their tracks.  Let's fix the @capture@ one first.  We can fix this by rewriting to use th @to_be@ syntax:
+
+@capture_test.rb@
+
+{% highlight ruby %}
+# expect result == 'expected'
+# now becomes
+expect result.to_be 'expected'
+
+#and
+# expect after == 'after'
+# now becomes
+expect after.to_be 'after'
+{% endhighlight %}
+
+This even looks a bit better.  So how are we doing on the tests now?:
+
+<pre class='shell'>
+$ ruby -I . bootspec_test.rb && ruby -I . expect_test.rb && ruby -I . capture_test.rb
+....F......
+</pre>
+
+So we still have a failure _somewhere_ but because we don't currently get a summary, we need to work out which one it is.  It's the fifth test, which probably lies in @bootspec_test.rb@, so looking into that file we see the fifth test.
+
+It turns out that there's only 4 tests, so it's the first one in @expect_test.rb@.  This actually makes sense, as this is probably a test for behavior we've just removed intentionally, so let's have a look:
+
+{% highlight ruby %}
+#Check that expect doesn't raise exceptions for true
+error_raised = false
+begin
+  expect true
+rescue
+  error_raised = true
+end
+
+print check !error_raised
+
+#Check that expect raises exceptions for false
+error_raised = false
+begin
+  expect false
+rescue
+  error_raised = true
+end
+
+print check error_raised
+{% endhighlight %}
+
+There's actually *two* tests that are wrong.  One fails, the other passes but for the wrong reasons.  This is because the tests weren't asserting _any_ error, and there are some.  There's two choices here:
+
+* Remove the tests
+* Rewrite the tests
+
+I'm going to opt for removal here because they actually express behavior which we no longer want, and to port to the new syntax doesn't really add value.  So by removing these two tests, by whole test suite looks as follows:
+
+<pre class='shell'>
+$ ruby -I . bootspec_test.rb && ruby -I . expect_test.rb && ruby -I . capture_test.rb
+.........
+</pre>
+
+Which is great.
+
+h2. Conclusion
+
+I know have a much better way of expression my @expectations@ and additionally the errors raised when they are not met actually provide and indication of _why_ it failed, not just that it did.
+
+This is really going to help as I move forward to produce some really useful failure output.
+
+The other take away, is that it's totally OK to remove tests, if they're failing because they want the code to do something which you _no longer_ want it to do.  Always review properly, but it's the right thing to do at times..
+
+All the code from this is available in the "@04-improving-expectations@":https://github.com/loz/discover/tree/04-improving-expectations branch
