@@ -8,3 +8,6 @@ author:
   email: jonathan.lozinski@gmail.com
   github: loz
   twitter: jlozinski
+
+JB:
+  ASSET_PATH: /discover/assets/
