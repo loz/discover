@@ -1,5 +1,6 @@
 ---
 title: Blogs
+layout: default
 ---
 
 I asked myself, what would it be like to do TDD if there were no frameworks in existance.  Or in otherwords, how would I write a TDD framework, using TDD principles, if no frameworks existed?

@@ -1,2 +1,10 @@
+title: Bootspec TDD
 markdown: rdiscount
 root: /discover/
+pygments: true
+
+author:
+  name: Jonathan Lozinksi
+  email: jonathan.lozinski@gmail.com
+  github: loz
+  twitter: jlozinski

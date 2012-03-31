@@ -1,8 +1,6 @@
-<html>
-  <head>
-    <link rel='stylesheet' href='{{ site.root }}css/ruby.css'>
-  </head>
-  <body>
-    {{ content }}
-  </body>
-</html>
+---
+theme :
+  name : twitter
+---
+{% include JB/setup %}
+{% include themes/twitter/default.html %}
