@@ -1,0 +1,159 @@
+---
+layout: post
+---
+h1. Going for a runner
+
+So, at the end of the previous article we were about ready to try and write a runner.  This would mean that we would run the runner, and gain an integration style test about what would be written out in the console.
+
+We have the ability to @capture@ the output, and also the ability to @expect@ the output @to_be@ something.  However, one small detour might be helpful here, and that is that the whole output might be a lot to test.  Perhaps I want to @expect@ the output to @include@ a string.
+
+h2. Expecting to include
+
+@expect_test.rb@
+
+{% highlight ruby %}
+#Check that we can expect to_include
+error = nil
+begin
+  expect 'this and that'.to_include 'that'
+rescue => error
+end
+
+print check !error
+{% endhighlight %}
+
+And to pass this test:
+
+@bootspec_extenions.rb@
+
+{% highlight ruby %}
+class Object
+  unless method_defined? :to_include
+    def to_include(expected)
+      Expectation.new :met => true
+    end
+  end
+end
+{% endhighlight %}
+
+Now the test to ensure it fails with the expected message:
+
+{% highlight ruby %}
+#Check that we get error when doesn't include
+error = nil
+begin
+  expect 'this'.to_include 'that'
+rescue => error
+end
+
+print check error.message.include? "expected 'this' to include 'that'"
+{% endhighlight %}
+
+And to finish the implementation correctly:
+
+{% highlight ruby %}
+class Object
+  unless method_defined? :to_include
+    def to_include(expected)
+       Expectation.new :met => self.include?(expected), :message => "expected '#{self}' to include '#{expected}'"
+    end
+  end
+end
+{% endhighlight %}
+
+h2. Full Test Running
+
+I have decided that I don't want to use @test@ as my keyword, I'd like to think of things as behaviors being specified, so the first test run will look like this:
+
+@runner_test.rb@
+
+{% highlight ruby %}
+output = capture do
+  requirements do
+    spec { expect true.to_be true }
+  end.run
+end
+
+expect output.to_be <<-SPEC
+.
+
+1 specification, no failures
+SPEC
+print '.'
+{% endhighlight %}
+
+Running this test fails as follows:
+
+<pre class='shell'>
+runner_test.rb:6:in `block in <main>': undefined method `requirements' for main:Object (NoMethodError)
+  from /Users/jlozinski/Development/discover_code/bootstrap/bootspec.rb:21:in `capture'
+    from runner_test.rb:5:in `<main>'
+</pre>
+
+So we need our requirements block:
+
+@bootspec.rb@
+
+{% highlight ruby %}
+module Bootspec
+  #original code
+
+  def requirements
+  end
+end
+{% endhighlight %}
+
+Now we have no 'run' method for the return of @requirements@:
+
+<pre class='shell'>
+runner_test.rb:6:in `block in <main>': undefined method `run' for nil:NilClass (NoMethodError)
+  from /Users/jlozinski/Development/discover_code/bootstrap/bootspec.rb:21:in `capture'
+    from runner_test.rb:5:in `<main>'
+</pre>
+
+So:
+
+@bootspec.rb@
+
+{% highlight ruby %}
+def requirements
+  Bootspec::Requirements.new
+end
+{% endhighlight %}
+
+@bootspec_requirements.rb@
+
+{% highlight ruby %}
+class Bootspec::Requirements
+  def run
+  end
+end
+{% endhighlight %}
+
+That gives us an object which responds to run, and we can return an instance in our 'requirements' syntax.  This now runs as follows:
+
+<pre class='shell'>
+/Users/jlozinski/Development/discover_code/bootstrap/bootspec.rb:17:in `expect': expected '' to be '. (RuntimeError)
+
+1 specification, no failures
+'
+  from runner_test.rb:11:in `<main>'
+</pre>
+
+So we have a failure becuase we're not returning the expected output..  So to rectify that we simple add the expected output to our run method:
+
+@bootspec_requirements.rb@
+
+{% highlight ruby %}
+def run
+  puts ".\n\n1 specification, no failures"
+end
+{% endhighlight %}
+
+And we have the pass again:
+
+<pre class='shell'>
+.
+</pre>
+
+
