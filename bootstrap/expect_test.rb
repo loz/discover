@@ -29,3 +29,21 @@ rescue => error
 end
 
 print check error.message.include? "expected 'one thing' to be 'another'"
+
+#Check that we can expect to_include
+error = nil
+begin
+  expect 'this and that'.to_include 'that'
+rescue => error
+end
+
+print check !error
+
+#Check that we get error when doesn't include
+error = nil
+begin
+  expect 'this'.to_include 'that'
+rescue => error
+end
+
+print check error.message.include? "expected 'this' to include 'that'"

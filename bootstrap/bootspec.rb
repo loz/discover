@@ -3,6 +3,8 @@ require 'bootspec_extensions'
 require 'bootspec_expectations'
 
 module Bootspec
+  require 'bootspec_requirements'
+
   def check(value)
     if value
       '.'
@@ -22,5 +24,9 @@ module Bootspec
     string = $stdout.string
     $stdout = old
     string
+  end
+
+  def requirements
+    Bootspec::Requirements.new
   end
 end
