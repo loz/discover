@@ -26,7 +26,8 @@ module Bootspec
     string
   end
 
-  def requirements
-    Bootspec::Requirements.new
+  def requirements(&block)
+    Bootspec::Requirements.new.tap { |r| r.instance_eval &block }.print_summary
   end
+
 end
