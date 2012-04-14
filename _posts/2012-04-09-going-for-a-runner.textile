@@ -156,4 +156,325 @@ And we have the pass again:
 .
 </pre>
 
+h3. Failure in runs
 
+Now we want to use a failure path, to see how many specificatins failed, and then after we get that working, a breakdown of where.
+
+@runner_test.rb@
+
+{% highlight ruby %}
+#Test that failures are totalled up
+output = capture do
+  requirements do
+    spec { expect true.to_be false }
+  end.run
+end
+
+expect output.to_be <<-SPEC
+F
+
+1 specification, 1 failure
+SPEC
+print '.'
+{% endhighlight %}
+
+Which gives us:
+
+<pre class='shell'>
+$ ruby -I . runner_test.rb 
+./Users/jlozinski/Development/discover_code/bootstrap/bootspec.rb:17:in `expect': expected '. (RuntimeError)
+
+1 specification, no failures
+' to be 'F
+
+1 specification, 1 failure
+'
+  from runner_test.rb:30:in `<main>'
+</pre>
+
+So, the output is wrong (obviously, as it's hard-coded).  So first we need to actually run the requirements block.  This means getting the passed block to @requirements@ into the initialized @Requirement@ instance:
+
+@bootspec.rb@
+
+{% highlight ruby %}
+  def requirements(&block)
+    Bootspec::Requirements.new.tap { |r| r.instance_eval &block }
+  end
+{% endhighlight %}
+
+Here I'm tapping into the instance before it returns and running @instance_eval@ with the given block.  This now runs as follows:
+
+<pre class='shell'>
+ ruby -I . runner_test.rb 
+ runner_test.rb:7:in `block (2 levels) in <main>': undefined method `spec' for #<Bootspec::Requirements:0x0000010180edd0> (NoMethodError)
+   from /Users/jlozinski/Development/discover_code/bootstrap/bootspec.rb:30:in `instance_eval'
+   from /Users/jlozinski/Development/discover_code/bootstrap/bootspec.rb:30:in `block in requirements'
+   from /Users/jlozinski/Development/discover_code/bootstrap/bootspec.rb:30:in `tap'
+   from /Users/jlozinski/Development/discover_code/bootstrap/bootspec.rb:30:in `requirements'
+   from runner_test.rb:6:in `block in <main>'
+   from /Users/jlozinski/Development/discover_code/bootstrap/bootspec.rb:23:in `capture'
+   from runner_test.rb:5:in `<main>'
+</pre>
+
+So the @spec@ method is now being called, but the @Requirement@ class doesn't define it:
+
+@bootspec_requirements.rb@
+
+{% highlight ruby %}
+class Bootspec::Requirements
+  #other code
+
+  def spec
+  end
+end
+{% endhighlight %}
+
+Now we get:
+
+<pre class='shell'>
+$ ruby -I . runner_test.rb 
+./Users/jlozinski/Development/discover_code/bootstrap/bootspec.rb:17:in `expect': expected '. (RuntimeError)
+
+1 specification, no failures
+' to be 'F
+
+1 specification, 1 failure
+'
+  from runner_test.rb:30:in `<main>'
+</pre>
+
+This is our original failure again.  So still we need to execute the @spec@ block.  This time I think a simple yield will suffice:
+
+{% highlight ruby %}
+class Bootspec::Requirements
+  #other code
+
+  def spec
+    yield
+  end
+end
+{% endhighlight %}
+
+<pre class='shell'>
+$ ruby -I . runner_test.rb 
+./Users/jlozinski/Development/discover_code/bootstrap/bootspec.rb:17:in `expect': expected 'true' to be 'false' (RuntimeError)
+  from runner_test.rb:22:in `block (3 levels) in <main>'
+  from /Users/jlozinski/Development/discover_code/bootstrap/bootspec_requirements.rb:7:in `spec'
+  from runner_test.rb:22:in `block (2 levels) in <main>'
+  from /Users/jlozinski/Development/discover_code/bootstrap/bootspec.rb:30:in `instance_eval'
+  from /Users/jlozinski/Development/discover_code/bootstrap/bootspec.rb:30:in `block in requirements'
+  from /Users/jlozinski/Development/discover_code/bootstrap/bootspec.rb:30:in `tap'
+  from /Users/jlozinski/Development/discover_code/bootstrap/bootspec.rb:30:in `requirements'
+  from runner_test.rb:21:in `block in <main>'
+  from /Users/jlozinski/Development/discover_code/bootstrap/bootspec.rb:23:in `capture'
+  from runner_test.rb:20:in `<main>'
+</pre>
+
+So my expectatation within my spec (within my test) is failing.  But because it raises exceptions, it terminates the code.  It needs to be caught and processed to get the right outout (the goal for the last couple of articles).  I also realise that the @.run@ syntax is not really doing anything for me (I didn't like it, and it the code is running without any special code in my @run@ method, so I think I'm going to drop that first:
+
+This now fails the first test, so I'm going to move the output into @spec@ as we do execute that now:
+
+{% highlight ruby %}
+class Bootspec::Requirements
+  #removed 'run' method
+
+  def spec
+    yield
+    puts ".\n\n1 specification, no failures"
+  end
+end
+{% endhighlight %}
+
+And runnin again, gets us back to where we were before.  Now to deal with the expect error catching:
+
+{% highlight ruby %}
+class Bootspec::Requirements
+  #removed 'run' method
+
+  def spec
+    yield
+    puts ".\n\n1 specification, no failures"
+  rescue
+    puts "F\n\n1 specification, 1 failure"
+  end
+end
+{% endhighlight %}
+
+And now our test passes:
+
+<pre class='shell'>
+$ ruby -I . runner_test.rb 
+..
+</pre>
+
+h3. Accumulating the specs
+
+This works, for our test cases, but it doesn't actually count the specs and failures, so lets add a test (or two) to ensure that it does:
+
+@runner_test.rb@
+
+{% highlight ruby %}
+#Test that specs are counted in summary
+output = capture do
+  requirements do
+    spec { expect true.to_be true }
+    spec { expect true.to_be false }
+  end
+end
+
+expect output.to_be <<-SPEC
+.F
+
+2 specifications, 1 failure
+SPEC
+print '.'
+{% endhighlight %}
+
+This results in:
+
+<pre class='shell'>
+$ ruby -I . runner_test.rb 
+../Users/jlozinski/Development/discover_code/bootstrap/bootspec.rb:17:in `expect': expected '. (RuntimeError)
+
+1 specification, no failures
+F
+
+1 specification, 1 failure
+' to be '.F
+
+2 specifications, 1 failure
+'
+  from runner_test.rb:45:in `<main>'
+</pre>
+
+Which is because we actually output the . or F and the 'summary' for each @spec@.  So we need to tally, and output at the end.  This means keeping track in our instance of spec count, and the failure count.  We can then print those after all the @spec@ blocks have run:
+
+@bootspec_requirements.rb@
+
+{% highlight ruby %}
+def initialize
+  @spec_count = 0
+  @fail_count = 0
+end
+
+def spec
+  @spec_count += 1
+  yield
+  print '.'
+rescue
+  @fail_count += 1
+  print 'F'
+end
+
+def print_summary
+  puts "\n\n"
+  puts "#@spec_count specifications, #@fail_count failures"
+end
+{% endhighlight %}
+
+And print the summary after the requirements are run:
+
+@bootspec.rb@
+
+{% highlight ruby %}
+  def requirements(&block)
+    Bootspec::Requirements.new.tap { |r| r.instance_eval &block }.print_summary
+  end
+{% endhighlight %}
+
+Now running our test we get the following output:
+
+<pre class='shell'>
+$ ruby -I . runner_test.rb 
+/Users/jlozinski/Development/discover_code/bootstrap/bootspec.rb:17:in `expect': expected '. (RuntimeError)
+1 specifications, 0 failures
+' to be '.
+
+1 specification, no failures
+'
+  from runner_test.rb:15:in `<main>'
+</pre>
+
+And we see we're almost there.  Unfortunately we thought we'd be gramatically correct about things, so we have for the singular states 'specification' not 'specifications', and we used 'no' not '0'.  So easily fixed:
+
+@bootspec_requirements.rb@
+
+{% highlight ruby %}
+# other code
+def print_summary
+  puts "\n\n"
+  spec_word = @spec_count == 1 ? 'specification' : 'specifications'
+  fail_count = @fail_count.zero? ? 'no' : @fail_count
+  puts "#@spec_count #{spec_word}, #{fail_count} failures"
+end
+{% endhighlight %}
+
+Now the test runs as follows:
+
+<pre class='shell'>
+$ ruby -I . runner_test.rb 
+./Users/jlozinski/Development/discover_code/bootstrap/bootspec.rb:17:in `expect': expected 'F (RuntimeError)
+
+1 specification, 1 failures
+' to be 'F
+
+1 specification, 1 failure
+'
+  from runner_test.rb:30:in `<main>'
+</pre>
+
+This is the same sort of error, only for plural and singular of 'failure', so:
+
+
+{% highlight ruby %}
+# other code
+def print_summary
+  puts "\n\n"
+  spec_word = @spec_count == 1 ? 'specification' : 'specifications'
+  fail_count = @fail_count.zero? ? 'no' : @fail_count
+  fail_word = @fail_count == 1 ? 'failure' : 'failures'
+  puts "#@spec_count #{spec_word}, #{fail_count} #{fail_word}"
+end
+{% endhighlight %}
+
+Now our test all pass again:
+
+<pre class='shell'>
+$ ruby -I . runner_test.rb 
+...
+</pre>
+
+h3. Checking our work
+
+This is great.  We still don't have the failure details, but we're getting there.  I think it's time to do a small 'manual' check on this runner:
+
+@manual_check.rb@
+
+{% highlight ruby %}
+require 'bootspec'
+include Bootspec
+
+requirements do
+  spec { expect true.to_be true }
+  spec { expect :foo.to_be :foo }
+  spec { expect 'this'.to_include 'that' }
+  spec { expect 'this does'.to_include 'does' }
+end
+{% endhighlight %}
+
+And my specs can be run in the same manor as usual, with this particlar suite giving me:
+
+<pre class='shell'>
+$ ruby -I . manual_check.rb 
+..F.
+
+4 specifications, 1 failure
+</pre>
+
+Perfect!  The third spec failed (as expected), and we have a summary showing us there was 1 failure out of the four specifications.
+
+h2. Conclusions
+
+We now have a spec runner, simply invoked by running the file in ruby, and it produces a summary of the tests run.  Next time I'll look at putting in the detailed failure out for failed specs, which will help a developer see which spec failed, and what the failure conditions were.
+
+All the code from this is available in the "@05-runner@":https://github.com/loz/discover/tree/05-runner branch
