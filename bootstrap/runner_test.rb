@@ -23,11 +23,8 @@ output = capture do
   end
 end
 
-expect output.to_be <<-SPEC
-F
-
-1 specification, 1 failure
-SPEC
+expect output.to_include 'F'
+expect output.to_include '1 specification, 1 failure'
 print '.'
 
 #Test that specs are counted in summary
@@ -38,9 +35,16 @@ output = capture do
   end
 end
 
-expect output.to_be <<-SPEC
-.F
+expect output.to_include '.F'
+expect output.to_include '2 specifications, 1 failure'
+print '.'
 
-2 specifications, 1 failure
-SPEC
+#Test that failure summary shows exception message
+output = capture do
+  requirements do
+    spec { expect true.to_be false }
+  end
+end
+
+expect output.to_include "expected 'true' to be 'false'"
 print '.'
